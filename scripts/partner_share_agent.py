@@ -183,3 +183,239 @@ def create_step1_card() -> dict:
             }
         ]
     }
+def create_step2_card(strategy_num: int = 1) -> dict:
+    """创建 Step 2 分享策略制定卡片"""
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": f"💰 Step 2: 分享策略 #{strategy_num}"},
+            "template": "green"
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**配置分享依据、分享水平和兑现节奏**"}
+            },
+            {"tag": "hr"},
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**📊 分享依据类型**"}
+            },
+            {
+                "tag": "select",
+                "placeholder": {"tag": "plain_text", "content": "选择分享依据类型"},
+                "options": [
+                    {"text": {"tag": "plain_text", "content": "财务类"}, "value": "财务类"},
+                    {"text": {"tag": "plain_text", "content": "业务类"}, "value": "业务类"},
+                    {"text": {"tag": "plain_text", "content": "里程碑类"}, "value": "里程碑类"},
+                    {"text": {"tag": "plain_text", "content": "交付物类"}, "value": "交付物类"},
+                    {"text": {"tag": "plain_text", "content": "投入量类"}, "value": "投入量类"}
+                ],
+                "value": {"key": "share_basis_type"}
+            },
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**📝 分享依据名称**"}
+            },
+            {
+                "tag": "input",
+                "placeholder": {"tag": "plain_text", "content": "如：项目回款"},
+                "value": {"key": "share_basis_name"},
+                "width": "default"
+            },
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**📏 计量单位**"}
+            },
+            {
+                "tag": "select",
+                "placeholder": {"tag": "plain_text", "content": "选择计量单位"},
+                "options": [
+                    {"text": {"tag": "plain_text", "content": "元"}, "value": "元"},
+                    {"text": {"tag": "plain_text", "content": "万元"}, "value": "万元"},
+                    {"text": {"tag": "plain_text", "content": "次"}, "value": "次"},
+                    {"text": {"tag": "plain_text", "content": "天"}, "value": "天"}
+                ],
+                "value": {"key": "unit"}
+            },
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**💵 分享水平**"}
+            },
+            {
+                "tag": "input",
+                "placeholder": {"tag": "plain_text", "content": "如：5% 或 3000"},
+                "value": {"key": "share_default"},
+                "width": "default"
+            },
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**⏱️ 兑现节奏**"}
+            },
+            {
+                "tag": "select",
+                "placeholder": {"tag": "plain_text", "content": "选择兑现节奏"},
+                "options": [
+                    {"text": {"tag": "plain_text", "content": "月度"}, "value": "月度"},
+                    {"text": {"tag": "plain_text", "content": "季度"}, "value": "季度"},
+                    {"text": {"tag": "plain_text", "content": "年度"}, "value": "年度"}
+                ],
+                "value": {"key": "payment_rhythm"}
+            },
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "➕ 添加更多"},
+                        "type": "default",
+                        "value": {"action": "step2_add_more"}
+                    },
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "✅ 下一步"},
+                        "type": "primary",
+                        "value": {"action": "step2_next"}
+                    }
+                ]
+            }
+        ]
+    }
+
+def create_step3_card() -> dict:
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": "✅ Step 3: 验证策略"},
+            "template": "orange"
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**验证策略是对分享水平的系数修正**"}
+            },
+            {"tag": "hr"},
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**📊 折算方式**"}
+            },
+            {
+                "tag": "select",
+                "placeholder": {"tag": "plain_text", "content": "选择折算方式"},
+                "options": [
+                    {"text": {"tag": "plain_text", "content": "线性折算"}, "value": "线性"},
+                    {"text": {"tag": "plain_text", "content": "区间对应"}, "value": "区间"},
+                    {"text": {"tag": "plain_text", "content": "函数计算"}, "value": "函数"}
+                ],
+                "value": {"key": "verification_method"}
+            },
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "🔄 跳过"},
+                        "type": "default",
+                        "value": {"action": "step3_skip"}
+                    },
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "✅ 下一步"},
+                        "type": "primary",
+                        "value": {"action": "step3_submit"}
+                    }
+                ]
+            }
+        ]
+    }
+
+def create_step4_card() -> dict:
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": "🛡️ Step 4: 示险规则"},
+            "template": "red"
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "**三层熔断保护体系**"}
+            },
+            {"tag": "hr"},
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "✅ 生成模型"},
+                        "type": "primary",
+                        "value": {"action": "step4_submit"}
+                    }
+                ]
+            }
+        ]
+    }
+            # Step 3 跳过
+            if action_key == "step3_skip":
+                session["step"] = 4
+                send_message(chat_id, create_step4_card())
+                return jsonify({"code": 0})
+            
+            # Step 3 提交
+            if action_key == "step3_submit":
+                form_data = action.get("form_value", {})
+                session["data"]["verification"] = {
+                    "method": form_data.get("verification_method", "")
+                }
+                session["step"] = 4
+                send_message(chat_id, create_step4_card())
+                return jsonify({"code": 0})
+            
+            # Step 4 提交 - 生成最终模型
+            if action_key == "step4_submit":
+                form_data = action.get("form_value", {})
+                session["data"]["risk_rules"] = {
+                    "low_score_threshold": form_data.get("low_score_threshold", "80"),
+                    "exceed_level_limit": form_data.get("exceed_level_limit", "30"),
+                    "profit_margin": form_data.get("profit_margin", "5"),
+                    "budget_overrun": form_data.get("budget_overrun", "10")
+                }
+                session["step"] = 5
+                send_message(chat_id, generate_final_card(session))
+                return jsonify({"code": 0})
+            
+            # 重新开始
+            if action_key == "restart":
+                # 清除会话
+                key = f"{open_id}_{chat_id}"
+                if key in user_sessions:
+                    del user_sessions[key]
+                
+                session = get_or_create_session(open_id, chat_id)
+                session["step"] = 1
+                send_message(chat_id, create_step1_card())
+                return jsonify({"code": 0})
+        
+        return jsonify({"code": 0, "msg": "success"})
+    
+    except Exception as e:
+        print(f"处理失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"code": 0, "msg": "success"})
+
+@flask_app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok", "service": "partner-share-card-agent"})
+
+def main():
+    print("="*60)
+    print("🚀 伙伴能力创值分享模型 Agent")
+    print("="*60)
+    print("发送「分享模型」或「创值分享」开始制定")
+    print("")
+    port = int(os.environ.get("PORT", 3000))
+    flask_app.run(host='0.0.0.0', port=port, threaded=True)
+
+if __name__ == "__main__":
+    main()
