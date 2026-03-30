@@ -10,33 +10,18 @@
 import os
 import sys
 import json
-import time
 import requests
 from flask import Flask, request, jsonify
-from typing import Dict, List, Optional, Any
+from typing import Dict
 
 # 配置
 os.environ.setdefault("FEISHU_APP_ID", "cli_a9426bcd88f8dbd6")
 os.environ.setdefault("FEISHU_APP_SECRET", "j9afagTYAfuughw27OcfjgIfGHWXkMp2")
 
-workspace_path = os.getenv('COZE_WORKSPACE_PATH', '/workspace/projects')
-if workspace_path not in sys.path:
-    sys.path.insert(0, workspace_path)
-
-from lark_oapi import Client, LogLevel
-
 app_id = os.getenv("FEISHU_APP_ID")
 app_secret = os.getenv("FEISHU_APP_SECRET")
 
-client = Client.builder() \
-    .app_id(app_id) \
-    .app_secret(app_secret) \
-    .log_level(LogLevel.INFO) \
-    .build()
-
 flask_app = Flask(__name__)
-
-# 用户会话存储 (生产环境应该用 Redis)
 user_sessions: Dict[str, Dict] = {}
 
 def get_tenant_token():
@@ -46,23 +31,15 @@ def get_tenant_token():
     data = resp.json()
     return data.get("tenant_access_token") if data.get("code") == 0 else None
 
-def send_message(chat_id: str, content: dict, msg_type: str = "interactive"):
+def send_message(chat_id: str, content: dict):
     """发送消息到飞书"""
     token = get_tenant_token()
     if not token:
         return False
-    
     resp = requests.post(
         "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "receive_id": chat_id,
-            "msg_type": msg_type,
-            "content": json.dumps(content) if isinstance(content, dict) else content
-        }
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={"receive_id": chat_id, "msg_type": "interactive", "content": json.dumps(content)}
     )
     return resp.json().get("code") == 0
 
@@ -183,6 +160,7 @@ def create_step1_card() -> dict:
             }
         ]
     }
+
 def create_step2_card(strategy_num: int = 1) -> dict:
     """创建 Step 2 分享策略制定卡片"""
     return {
@@ -355,46 +333,133 @@ def create_step4_card() -> dict:
             }
         ]
     }
-            # Step 3 跳过
-            if action_key == "step3_skip":
+
+def generate_final_card(session: Dict) -> dict:
+    """生成最终的分享模型卡片"""
+    data = session["data"]
+    strategies_text = ""
+    for i, strategy in enumerate(data.get("share_strategies", []), 1):
+        strategies_text += f"\\n策略{i}: {strategy.get('basis_type', '')} - {strategy.get('share_default', '')}\\n"
+    
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": "📋 伙伴能力创值分享模型"},
+            "template": "blue"
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": f"**业务场景：** {data.get('business_line', '')} · {data.get('customer_type', '')} · {data.get('demand_type', '')}"}
+            },
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": f"**目标能力：** {data.get('capability', {}).get('name', '')}"}
+            },
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": f"**适用等级：** {' / '.join(data.get('applicable_levels', []))}"}
+            },
+            {"tag": "hr"},
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": f"**💰 分享策略：**{strategies_text if strategies_text else '未配置'}"}
+            },
+            {"tag": "hr"},
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "*角享群开发*"}
+            }
+        ]
+    }
+
+@flask_app.route('/webhook', methods=['POST'])
+def webhook():
+    """飞书 webhook 回调处理"""
+    try:
+        body = request.json
+        print(f"收到回调: {json.dumps(body, ensure_ascii=False)}")
+        
+        # URL 验证
+        if body.get("type") == "url_verification":
+            return jsonify({"challenge": body.get("challenge", "")})
+        
+        event_type = body.get("header", {}).get("event_type", "")
+        
+        # 消息事件
+        if event_type == "im.message.receive_v1":
+            event = body.get("event", {})
+            message = event.get("message", {})
+            chat_id = message.get("chat_id", "")
+            sender = event.get("sender", {}).get("sender_id", {}).get("user_id", "")
+            
+            if message.get("message_type") == "text":
+                content = json.loads(message.get("content", "{}"))
+                text = content.get("text", "").strip()
+                
+                if "分享模型" in text or "创值分享" in text:
+                    session = get_or_create_session(sender, chat_id)
+                    session["step"] = 1
+                    send_message(chat_id, create_step1_card())
+        
+        # 卡片回调
+        if event_type == "card.action.trigger":
+            event = body.get("event", {})
+            action = event.get("action", {})
+            action_value = action.get("value", {})
+            action_key = action_value.get("action", "")
+            
+            context = event.get("context", {})
+            open_id = context.get("open_id", "")
+            chat_id = context.get("open_chat_id", "")
+            
+            session = get_or_create_session(open_id, chat_id)
+            
+            if action_key == "step1_submit":
+                form_data = action.get("form_value", {})
+                session["data"]["business_line"] = form_data.get("business_line", "")
+                session["data"]["customer_type"] = form_data.get("customer_type", "")
+                session["data"]["demand_type"] = form_data.get("demand_type", "")
+                session["data"]["capability"] = {"name": form_data.get("capability_name", "")}
+                session["data"]["applicable_levels"] = form_data.get("applicable_levels", [])
+                session["data"]["applicability_note"] = form_data.get("applicability_note", "")
+                session["step"] = 2
+                send_message(chat_id, create_step2_card(1))
+            
+            elif action_key == "step2_add_more":
+                form_data = action.get("form_value", {})
+                strategy = {
+                    "basis_type": form_data.get("share_basis_type", ""),
+                    "share_default": form_data.get("share_default", "")
+                }
+                session["data"]["share_strategies"].append(strategy)
+                count = session["temp"].get("strategy_count", 1) + 1
+                session["temp"]["strategy_count"] = count
+                send_message(chat_id, create_step2_card(count))
+            
+            elif action_key == "step2_next":
+                form_data = action.get("form_value", {})
+                strategy = {
+                    "basis_type": form_data.get("share_basis_type", ""),
+                    "share_default": form_data.get("share_default", "")
+                }
+                session["data"]["share_strategies"].append(strategy)
+                session["step"] = 3
+                send_message(chat_id, create_step3_card())
+            
+            elif action_key == "step3_skip":
                 session["step"] = 4
                 send_message(chat_id, create_step4_card())
-                return jsonify({"code": 0})
             
-            # Step 3 提交
-            if action_key == "step3_submit":
+            elif action_key == "step3_submit":
                 form_data = action.get("form_value", {})
-                session["data"]["verification"] = {
-                    "method": form_data.get("verification_method", "")
-                }
+                session["data"]["verification"] = {"method": form_data.get("verification_method", "")}
                 session["step"] = 4
                 send_message(chat_id, create_step4_card())
-                return jsonify({"code": 0})
             
-            # Step 4 提交 - 生成最终模型
-            if action_key == "step4_submit":
-                form_data = action.get("form_value", {})
-                session["data"]["risk_rules"] = {
-                    "low_score_threshold": form_data.get("low_score_threshold", "80"),
-                    "exceed_level_limit": form_data.get("exceed_level_limit", "30"),
-                    "profit_margin": form_data.get("profit_margin", "5"),
-                    "budget_overrun": form_data.get("budget_overrun", "10")
-                }
+            elif action_key == "step4_submit":
                 session["step"] = 5
                 send_message(chat_id, generate_final_card(session))
-                return jsonify({"code": 0})
-            
-            # 重新开始
-            if action_key == "restart":
-                # 清除会话
-                key = f"{open_id}_{chat_id}"
-                if key in user_sessions:
-                    del user_sessions[key]
-                
-                session = get_or_create_session(open_id, chat_id)
-                session["step"] = 1
-                send_message(chat_id, create_step1_card())
-                return jsonify({"code": 0})
         
         return jsonify({"code": 0, "msg": "success"})
     
@@ -408,14 +473,6 @@ def create_step4_card() -> dict:
 def health():
     return jsonify({"status": "ok", "service": "partner-share-card-agent"})
 
-def main():
-    print("="*60)
-    print("🚀 伙伴能力创值分享模型 Agent")
-    print("="*60)
-    print("发送「分享模型」或「创值分享」开始制定")
-    print("")
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))
     flask_app.run(host='0.0.0.0', port=port, threaded=True)
-
-if __name__ == "__main__":
-    main()
